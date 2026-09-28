@@ -1,0 +1,21 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# generated data, runs, reports
+work/
+
+# field data stays local (large, not redistributable)
+dataset/
+
+# os / editors
+.DS_Store
+Icon?
+.idea/
+.vscode/

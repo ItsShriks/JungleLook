@@ -1,0 +1,62 @@
+# Template for a new, unlabelled survey. Copy it, set `name` and `data.inputs`, then:
+#   junglelook run -c configs/my_site.yaml
+# Every key is optional; defaults live in junglelook/config.py and junglelook/pseudolabel.py.
+name: my_site                          # outputs go to work/<name>/
+
+data:
+  inputs: [path/to/cloud_*.laz]        # .las .laz .ply .pcd .txt/.csv (CloudCompare ASCII) .npy
+  bounds: null                         # [xmin, ymin, xmax, ymax] to crop large surveys
+  voxel_size: 0.03                     # m; evens out UAV density, 0 disables
+  label_field: null                    # set to e.g. classification to train on existing labels
+  label_map: null                      # {2: ground, 20: stump, 1: other} when label_field is set
+
+features:
+  scales: [10, 30]                     # k-NN sizes for the eigen features
+  column_cell: 0.5                     # m, XY column for vertical-context features
+  dtm:                                 # progressive morphological ground filter
+    cell: 0.5                          # m raster
+    windows: [1.0, 2.0, 4.0]           # m; largest must exceed the widest non-ground object
+    dh0: 0.15                          # m elevation threshold at the smallest window
+    slope: 0.3                         # terrain slope tolerance
+
+pseudolabel:
+  classes: [ground, stump, other]
+  ground_max_hag: 0.12                 # raise for noisy ground (check the hag field in features.ply)
+  ignore_band: 0.08
+  stump:
+    height: [0.12, 0.8]                # m above ground
+    diameter: [0.3, 2.5]               # m, includes root collar
+    min_points: 80                     # scale with point density
+    min_roundness: 0.3
+    max_scattering: 0.25
+    max_stack_hag: 1.0                 # continuous stack above => tree base, not a stump
+
+# Optional: annotations used ONLY for evaluation (never for training).
+# reference:
+#   classes: [not_stump, stump]
+#   default_class: not_stump
+#   class_map: {ground: not_stump, other: not_stump, stump: stump}
+#   sources:
+#     - path: annotations/stump_*.txt
+#       class: stump
+#       transform: configs/transforms/my_site.txt   # from `junglelook register`, if frames differ
+#       radius: 0.08
+#       instances: true
+
+split: {tile_size: 10.0, ratios: [0.7, 0.15, 0.15], seed: 0}
+
+model:
+  name: pointnet2                      # pointnet | pointnet2
+  pointnet2: {radii: [0.2, 0.4, 0.8, 1.6]}   # m; scale with block size / object size
+
+train:
+  block_size: 6.0                      # m
+  num_points: 4096
+  batch_size: 8
+  epochs: 40
+  samples_per_epoch: 2000
+  device: auto                         # cuda > mps > cpu
+
+infer:
+  smooth_k: 8
+  instances: {class: stump, eps: 0.10, min_points: 30}

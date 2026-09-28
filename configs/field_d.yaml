@@ -1,0 +1,45 @@
+# Field-D LiDAR ROI (Garrulus UAV scan, local frame), treated as UNLABELLED input.
+# Labels come from geometric rules (pseudolabel); the annotated stumps are used
+# only to evaluate, never to train (unless pseudolabel.stumps_from_reference: true).
+name: field_d
+
+data:
+  inputs: [dataset/filtered_point_cloud.ply]
+  voxel_size: 0.03
+
+features:
+  scales: [10, 30]
+  dtm: {cell: 0.5, windows: [1.0, 2.0, 4.0], dh0: 0.15, slope: 0.3, smooth: 1.0}
+
+pseudolabel:
+  classes: [ground, stump, other]
+  ground_max_hag: 0.12
+  ignore_band: 0.08
+
+# Evaluation-only annotations: the 129 QGIS stump polygons (photogrammetry, UTM),
+# registered into this LiDAR frame by RANSAC + ICP (98.8 % inliers, 0.11 m RMS).
+reference:
+  classes: [not_stump, stump]
+  default_class: not_stump
+  class_map: {ground: not_stump, other: not_stump, stump: stump}
+  sources:
+    - path: dataset/stumps_labelled_3/*.txt
+      class: stump
+      transform: configs/transforms/stumps_utm_to_lidar.txt
+      radius: 0.08
+      min_hag: 0.1        # annotation polygons include the ground around the stump
+      instances: true
+
+split: {tile_size: 10.0, ratios: [0.7, 0.15, 0.15], seed: 0}
+
+model:
+  name: pointnet2
+
+train:
+  block_size: 6.0
+  num_points: 4096
+  batch_size: 8
+  epochs: 30
+  samples_per_epoch: 800
+  lr: 0.001
+  patience: 8
